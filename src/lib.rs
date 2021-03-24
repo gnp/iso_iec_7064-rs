@@ -12,7 +12,7 @@
 
 use crate::alphabet::Alphabet;
 
-pub mod alphabet;
+mod alphabet;
 
 // pub trait CheckCharacterSystem {
 //     /// In The Standard, Section 5.4.2, Table 3 "Single digit designations" specifies official names

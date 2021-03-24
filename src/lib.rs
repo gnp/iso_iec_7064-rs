@@ -245,11 +245,15 @@ pub trait HybridCheckCharacterSystem {
     }
 }
 
+// The _Pure_ _Check Character Systems_ defined in The Standard.
+
 mod mod_11_2;
 mod mod_1271_36;
 mod mod_37_2;
 mod mod_661_26;
 mod mod_97_10;
+
+// The _Hybrid_ _Check Character Systems_ defined in The Standard.
 
 mod mod_11_10;
 mod mod_27_26;

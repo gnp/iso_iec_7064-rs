@@ -1,3 +1,4 @@
+#![warn(missing_docs)]
 //! # iso_iec_7064::alphabet
 //!
 //! A type to represent the five _Alphabets_ appearing in The Standard.

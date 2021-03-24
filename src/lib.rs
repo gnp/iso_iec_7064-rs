@@ -1,73 +1,6 @@
-pub enum Alphabet {
-    /// Just the digits '0' through '9' for both the input string and the check digit(s).
-    Numeric,
-    /// The digits '0' through '9' for the input string, and the same set plus the supplementary
-    /// check character 'X' for the check digit.
-    NumericWithX,
-    /// Just the letters 'A' through 'Z' for both the input string and the check digit(s).
-    Alphabetic,
-    /// The digits '0' through '9' and the letters 'A' through 'Z'.
-    Alphanumeric,
-    /// The digits '0' through '9' and the letters 'A' through 'Z' for the input string, and the
-    /// same set plus the supplementary check character '*' for the check digit.
-    AlphanumericWithAsterisk,
-}
+use crate::alphabet::Alphabet;
 
-fn max_char_value(alphabet: Alphabet) -> i8 {
-    match alphabet {
-        Alphabet::Numeric => 9,
-        Alphabet::NumericWithX => 10,
-        Alphabet::Alphabetic => 25,
-        Alphabet::Alphanumeric => 35,
-        Alphabet::AlphanumericWithAsterisk => 36,
-    }
-}
-
-/// Returns the numeric value of the character, or -1 if it is not a valid character for the
-/// alphabet.
-fn char_value(alphabet: Alphabet, c: u8) -> i8 {
-    match alphabet {
-        Alphabet::Numeric => match c {
-            b'0'..=b'9' => (c - b'0') as i8,
-            _ => -1i8,
-        },
-        Alphabet::NumericWithX => match c {
-            b'0'..=b'9' => (c - b'0') as i8,
-            b'X' => 10i8,
-            _ => -1i8,
-        },
-        Alphabet::Alphabetic => match c {
-            b'A'..=b'Z' => (c - b'A') as i8,
-            _ => -1i8,
-        },
-        Alphabet::Alphanumeric => match c {
-            b'0'..=b'9' => (c - b'0') as i8,
-            b'A'..=b'Z' => (c - b'A' + 10) as i8,
-            _ => -1i8,
-        },
-        Alphabet::AlphanumericWithAsterisk => match c {
-            b'0'..=b'9' => (c - b'0') as i8,
-            b'A'..=b'Z' => (c - b'A' + 10) as i8,
-            b'*' => 36i8,
-            _ => -1i8,
-        },
-    }
-}
-
-/// Returns the value of the supplementary check character for the alphabet, or i8::MIN if there
-/// isn't one. These are used during validation to detect illegal characters in the payload portion
-/// of the input string. We use i8::MIN for the "not applicable" value because it compares not equal
-/// to any actual character value *and* it compares not-equal to -1, which is used internally in the
-/// validation function.
-fn supplementary_char_value(alphabet: Alphabet) -> i8 {
-    match alphabet {
-        Alphabet::Numeric => i8::MIN,
-        Alphabet::NumericWithX => 10,
-        Alphabet::Alphabetic => i8::MIN,
-        Alphabet::Alphanumeric => i8::MIN,
-        Alphabet::AlphanumericWithAsterisk => 36,
-    }
-}
+pub mod alphabet;
 
 // pub trait CheckCharacterSystem {
 //     /// In The Standard, Section 5.4.2, Table 3 "Single digit designations" specifies official names
@@ -115,18 +48,18 @@ pub trait PureCheckCharacterSystem {
         // We remember the last one or two char values so we can detect if we ever roll off a
         // _Supplementary Check Character_ ('X' for MOD 11-2 or '*' for MOD 32-2).
         let mut check_chars: [i8; MAX_CHECK_LENGTH] = [-1i8; MAX_CHECK_LENGTH];
-        let supplementary_char: i8 = supplementary_char_value(Self::ALPHABET);
+        let supplementary_char: i8 = alphabet::supplementary_char_value(Self::ALPHABET);
 
         let modulus: usize = Self::MODULUS as usize;
         let radix: usize = Self::RADIX as usize;
 
-        let mcv: usize = max_char_value(Self::ALPHABET) as usize;
+        let mcv: usize = alphabet::max_char_value(Self::ALPHABET) as usize;
         let max_sum: usize = (usize::MAX - mcv) / radix;
 
         let mut sum: usize = 0;
 
         for c in string.as_bytes().iter() {
-            let a = char_value(Self::ALPHABET, *c);
+            let a = alphabet::char_value(Self::ALPHABET, *c);
             let a = if a < 0 {
                 // The character encountered is not valid for our alphabet, so the input string is
                 // not valid
@@ -161,18 +94,18 @@ pub trait PureCheckCharacterSystem {
         // We remember the last one or two char values so we can detect if we ever roll off a
         // _Supplementary Check Character_ ('X' for MOD 11-2 or '*' for MOD 32-2).
         let mut check_chars: [i8; MAX_CHECK_LENGTH] = [-1i8; MAX_CHECK_LENGTH];
-        let supplementary_char: i8 = supplementary_char_value(Self::ALPHABET);
+        let supplementary_char: i8 = alphabet::supplementary_char_value(Self::ALPHABET);
 
         let modulus: usize = Self::MODULUS as usize;
         let radix: usize = Self::RADIX as usize;
 
-        let mcv: usize = max_char_value(Self::ALPHABET) as usize;
+        let mcv: usize = alphabet::max_char_value(Self::ALPHABET) as usize;
         let max_sum: usize = (usize::MAX - mcv) / radix;
 
         let mut sum: usize = 0;
 
         for c in string.as_bytes().iter() {
-            let a = char_value(Self::ALPHABET, *c);
+            let a = alphabet::char_value(Self::ALPHABET, *c);
             let a = if a < 0 {
                 // The character encountered is not valid for our alphabet, so the input string is
                 // not valid
@@ -248,7 +181,7 @@ pub trait HybridCheckCharacterSystem {
         let mut first_char: bool = true;
 
         for c in string.as_bytes().iter() {
-            let a = char_value(Self::ALPHABET, *c);
+            let a = alphabet::char_value(Self::ALPHABET, *c);
             let a = if a < 0 {
                 // The character encountered is not valid for our alphabet, so the input string is
                 // not valid
@@ -281,7 +214,7 @@ pub trait HybridCheckCharacterSystem {
         let mut s: usize = 0;
 
         for c in string.as_bytes().iter() {
-            let a = char_value(Self::ALPHABET, *c);
+            let a = alphabet::char_value(Self::ALPHABET, *c);
             let a = if a < 0 {
                 // The character encountered is not valid for our alphabet, so the input string is
                 // not valid

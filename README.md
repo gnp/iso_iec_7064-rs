@@ -7,7 +7,7 @@ Standard).
 
 This crate implements all the _Check Character Systems_ specified in The Standard.
 
-Note that the `mod_97_10` system is used by [ISO 17442-1:2020](https://www.iso.org/standard/78829.html)
+Note that the `Mod97_10` system is used by [ISO 17442-1:2020](https://www.iso.org/standard/78829.html)
 "Financial services — Legal entity identifier (LEI) — Part 1: Assignment", which is implemented
 by [the `lei` crate](https://crates.io/crates/lei).
 

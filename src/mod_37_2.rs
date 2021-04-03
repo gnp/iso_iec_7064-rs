@@ -11,7 +11,7 @@ impl System for Mod37_2 {
     const CHECK_LENGTH: u8 = 1;
 }
 
-impl PureSystem for Mod37_2 {
-    const MODULUS: u16 = 37;
-    const RADIX: u8 = 2;
+impl PureSystem<1> for Mod37_2 {
+    const MODULUS: usize = 37;
+    const RADIX: usize = 2;
 }

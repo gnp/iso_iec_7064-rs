@@ -11,9 +11,9 @@ impl System for Mod97_10 {
     const CHECK_LENGTH: u8 = 2;
 }
 
-impl PureSystem for Mod97_10 {
-    const MODULUS: u16 = 97;
-    const RADIX: u8 = 10;
+impl PureSystem<2> for Mod97_10 {
+    const MODULUS: usize = 97;
+    const RADIX: usize = 10;
 }
 
 #[cfg(test)]

@@ -4,8 +4,7 @@
 
 use crate::system::System;
 
-struct PureCheckCharacterSystemConfig {
-    check_length: usize,
+pub struct Config {
     modulus: usize,
     radix: usize,
     max_digit_value: u8,
@@ -13,52 +12,30 @@ struct PureCheckCharacterSystemConfig {
     max_sum: usize,
 }
 
-impl PureCheckCharacterSystemConfig {
-    fn new(
-        check_length: usize,
-        modulus: usize,
-        radix: usize,
-        max_digit_value: u8,
-        supplementary_char_value: Option<u8>,
-    ) -> PureCheckCharacterSystemConfig {
-        let max_sum: usize = (usize::MAX - (max_digit_value as usize)) / radix;
-
-        PureCheckCharacterSystemConfig {
-            check_length,
-            modulus,
-            radix,
-            max_digit_value,
-            supplementary_char_value,
-            max_sum,
-        }
-    }
-}
-
-const MAX_CHECK_LENGTH: usize = 2;
-
-/// This is the state that will change with each iteration
-struct PureCheckCharacterSystemState {
+/// This is the state that will change with each iteration. Constant generic parameter CHECK_LENGTH
+/// must be non-zero.
+struct State<const CHECK_LENGTH: usize> {
     /// We maintain the count so we can fail if there isn't at least one payload character.
     count: usize,
     /// The work-in-progress checksum.
     sum: usize,
     /// We remember the last one or two char values so we can detect if we ever roll off a
     /// _Supplementary Check Character_ ('X' for MOD 11-2 or '*' for MOD 32-2).
-    check_char_values: [u8; MAX_CHECK_LENGTH],
+    check_char_values: [u8; CHECK_LENGTH],
 }
 
-impl PureCheckCharacterSystemState {
-    fn new() -> PureCheckCharacterSystemState {
-        PureCheckCharacterSystemState {
+impl<const CHECK_LENGTH: usize> State<CHECK_LENGTH> {
+    fn new() -> State<CHECK_LENGTH> {
+        State {
             count: 0,
             sum: 0,
-            check_char_values: [0; MAX_CHECK_LENGTH],
+            check_char_values: [0; CHECK_LENGTH],
         }
     }
 
     /// Returns true if it successfully processed the digit value, false otherwise (for example, if
     /// the value was out of range).
-    fn process_digit_value(&mut self, config: &PureCheckCharacterSystemConfig, v: u8) -> bool {
+    fn process_digit_value(&mut self, config: &Config, v: u8) -> bool {
         if v > config.max_digit_value {
             return false;
         }
@@ -74,10 +51,10 @@ impl PureCheckCharacterSystemState {
                 if self.check_char_values[0] == n {
                     return false;
                 }
-                for i in 1..config.check_length {
+                for i in 1..CHECK_LENGTH {
                     self.check_char_values[i - 1] = self.check_char_values[i]
                 }
-                self.check_char_values[config.check_length - 1] = v;
+                self.check_char_values[CHECK_LENGTH - 1] = v;
             }
         }
 
@@ -94,18 +71,26 @@ impl PureCheckCharacterSystemState {
 }
 
 /// Parameters shared by all _Pure Check Character Systems_
-pub trait PureSystem: System {
-    const MODULUS: u16;
+pub trait PureSystem<const CHECK_LENGTH: usize>: System {
+    const MODULUS: usize;
 
-    const RADIX: u8;
+    const RADIX: usize;
 
-    fn modulus() -> u16 {
+    fn modulus() -> usize {
         Self::MODULUS
     }
 
-    fn radix() -> u8 {
+    fn radix() -> usize {
         Self::RADIX
     }
+
+    const CONFIG: Config = Config {
+        modulus: Self::MODULUS,
+        radix: Self::RADIX,
+        max_digit_value: Self::ALPHABET.max_digit_value(),
+        supplementary_char_value: Self::ALPHABET.supplementary_char_value(),
+        max_sum: (usize::MAX - (Self::ALPHABET.max_digit_value() as usize)) / Self::RADIX,
+    };
 
     /// Validate that the input digit values, which must already have the check digit(s) appended,
     /// satisfy the check. If a digit value outside those allowed by the the ALPHABET is
@@ -114,40 +99,21 @@ pub trait PureSystem: System {
     where
         I: IntoIterator<Item = u8>,
     {
-        // const MAX_CHECK_LENGTH: usize = 2;
-        let check_length = Self::CHECK_LENGTH as usize;
-        // We remember the last one or two char values so we can detect if we ever roll off a
-        // _Supplementary Check Character_ ('X' for MOD 11-2 or '*' for MOD 32-2).
-        // let mut check_char_values: [u8; MAX_CHECK_LENGTH] = [0; MAX_CHECK_LENGTH];
-        let supplementary_char_value: Option<u8> = Self::ALPHABET.supplementary_char_value();
-
-        let modulus: usize = Self::MODULUS as usize;
-        let radix: usize = Self::RADIX as usize;
-        let max_digit_value: u8 = Self::ALPHABET.max_digit_value();
-
-        let config = PureCheckCharacterSystemConfig::new(
-            check_length,
-            modulus,
-            radix,
-            max_digit_value,
-            supplementary_char_value,
-        );
-
-        let mut state = PureCheckCharacterSystemState::new();
+        let mut state: State<CHECK_LENGTH> = State::new();
 
         for v in it.into_iter() {
-            if !state.process_digit_value(&config, v) {
+            if !state.process_digit_value(&Self::CONFIG, v) {
                 return false;
             }
         }
 
         // If we have processed fewer than `check_length` + 1 items, then the input cannot be valid
         // because it has no Payload.
-        if state.count < (config.check_length + 1) {
+        if state.count < (CHECK_LENGTH + 1) {
             return false;
         }
 
-        state.sum % config.modulus == 1
+        state.sum % Self::MODULUS == 1
     }
 
     /// Validate that the input ASCII bytes, which must already have the check digit(s) appended,
@@ -184,32 +150,17 @@ pub trait PureSystem: System {
     where
         I: IntoIterator<Item = u8>,
     {
-        let check_length = Self::CHECK_LENGTH as usize;
-        let supplementary_char_value: Option<u8> = Self::ALPHABET.supplementary_char_value();
-
-        let modulus: usize = Self::MODULUS as usize;
-        let radix: usize = Self::RADIX as usize;
-        let max_digit_value: u8 = Self::ALPHABET.max_digit_value();
-
-        let config = PureCheckCharacterSystemConfig::new(
-            check_length,
-            modulus,
-            radix,
-            max_digit_value,
-            supplementary_char_value,
-        );
-
-        let mut state = PureCheckCharacterSystemState::new();
+        let mut state: State<CHECK_LENGTH> = State::new();
 
         for v in it.into_iter() {
-            if !state.process_digit_value(&config, v) {
+            if !state.process_digit_value(&Self::CONFIG, v) {
                 return None;
             }
         }
 
         // Act as if we had zero(s) provided for the check digit position(s).
-        for _ in 0..check_length {
-            if !state.process_digit_value(&config, 0) {
+        for _ in 0..CHECK_LENGTH {
+            if !state.process_digit_value(&Self::CONFIG, 0) {
                 return None;
             }
         }
@@ -217,11 +168,11 @@ pub trait PureSystem: System {
         // If we have processed no items, then the input cannot be valid because it has no Payload.
         // NOTE: We have to check this after all the calls to process_digit_value() so we can get
         // back ownership of the state.
-        if state.count < (check_length + 1) {
+        if state.count < (CHECK_LENGTH + 1) {
             return None;
         }
 
-        let value = ((modulus + 1) - (state.sum % modulus)) % modulus;
+        let value = ((Self::MODULUS + 1) - (state.sum % Self::MODULUS)) % Self::MODULUS;
 
         Some(value as u16)
     }

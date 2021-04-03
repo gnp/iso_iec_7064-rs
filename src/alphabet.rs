@@ -25,7 +25,7 @@ pub enum Alphabet {
 
 impl Alphabet {
     /// The maximum digit value assigned to any character of the _Alphabet_.
-    pub fn max_digit_value(&self) -> u8 {
+    pub const fn max_digit_value(&self) -> u8 {
         match self {
             Alphabet::Numeric => 9,
             Alphabet::NumericWithX => 10,
@@ -69,7 +69,7 @@ impl Alphabet {
     /// Returns `Some(_)` for the supplementary check character for the alphabet, or `None` if there
     /// isn't one. These are used during validation to detect illegal characters in the payload portion
     /// of the input string.
-    pub fn supplementary_char_value(&self) -> Option<u8> {
+    pub const fn supplementary_char_value(&self) -> Option<u8> {
         match self {
             Alphabet::Numeric => None,
             Alphabet::NumericWithX => Some(10),

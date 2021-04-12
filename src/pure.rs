@@ -2,19 +2,17 @@
 //!
 //! A trait to help implement the _Pure Check Character Systems_ appearing in The Standard.
 
+use crate::alphabet::Alphabet;
 use crate::system::System;
 
-pub struct Config {
-    modulus: usize,
-    radix: usize,
-    max_digit_value: u8,
-    supplementary_char_value: Option<u8>,
-    max_sum: usize,
-}
-
 /// This is the state that will change with each iteration. Constant generic parameter CHECK_LENGTH
-/// must be non-zero.
+/// must be non-zero. The type of CHECK_LENGTH is usize instead of u8 because even though it in
+/// practice only ever contains value 1 or 2, it is used in the size of an array, requiring it to be
+/// of type usize.
 struct State<const CHECK_LENGTH: usize> {
+    /// The maximum value the sum can attain before we have to reduce it by the modulus to prevent
+    /// overflow.
+    max_sum: usize,
     /// We maintain the count so we can fail if there isn't at least one payload character.
     count: usize,
     /// The work-in-progress checksum.
@@ -25,8 +23,10 @@ struct State<const CHECK_LENGTH: usize> {
 }
 
 impl<const CHECK_LENGTH: usize> State<CHECK_LENGTH> {
-    fn new() -> State<CHECK_LENGTH> {
+    fn new(system: &PureSystem<CHECK_LENGTH>) -> State<CHECK_LENGTH> {
+        let max_sum = (usize::MAX - (system.alphabet.max_digit_value() as usize)) / system.radix;
         State {
+            max_sum,
             count: 0,
             sum: 0,
             check_char_values: [0; CHECK_LENGTH],
@@ -35,8 +35,8 @@ impl<const CHECK_LENGTH: usize> State<CHECK_LENGTH> {
 
     /// Returns true if it successfully processed the digit value, false otherwise (for example, if
     /// the value was out of range).
-    fn process_digit_value(&mut self, config: &Config, v: u8) -> bool {
-        if v > config.max_digit_value {
+    fn process_digit_value(&mut self, system: &PureSystem<CHECK_LENGTH>, v: u8) -> bool {
+        if v > system.alphabet.max_digit_value() {
             return false;
         }
 
@@ -45,7 +45,7 @@ impl<const CHECK_LENGTH: usize> State<CHECK_LENGTH> {
         // If our alphabet has a supplementary character, then we need to be sure we are not
         // about to roll off a value corresponding to the supplementary character, because if we
         // are, that means it was in the Payload portion of the input, making the input invalid.
-        match config.supplementary_char_value {
+        match system.alphabet.supplementary_char_value() {
             None => (),
             Some(n) => {
                 if self.check_char_values[0] == n {
@@ -60,49 +60,55 @@ impl<const CHECK_LENGTH: usize> State<CHECK_LENGTH> {
 
         // If the sum is great enough we cannot guarantee to not overflow, reduce it before
         // performing the next multiply-add step.
-        if self.sum > config.max_sum {
-            self.sum %= config.modulus
+        if self.sum > self.max_sum {
+            self.sum %= system.modulus
         }
 
-        self.sum = (self.sum * config.radix) + (v as usize);
+        self.sum = (self.sum * system.radix) + (v as usize);
 
         true
     }
 }
 
-/// Parameters shared by all _Pure Check Character Systems_
-pub trait PureSystem<const CHECK_LENGTH: usize>: System {
-    const MODULUS: usize;
+/// Type for implementing all _Pure Check Character Systems_
+pub struct PureSystem<const CHECK_LENGTH: usize> {
+    pub(crate) name: &'static str,
+    pub(crate) designation: u8,
+    pub(crate) alphabet: Alphabet,
+    pub(crate) modulus: usize,
+    pub(crate) radix: usize,
+}
 
-    const RADIX: usize;
+impl<const CHECK_LENGTH: usize> PureSystem<CHECK_LENGTH> {}
 
-    fn modulus() -> usize {
-        Self::MODULUS
+impl<const CHECK_LENGTH: usize> System for PureSystem<CHECK_LENGTH> {
+    fn name(&self) -> &'static str {
+        self.name
     }
 
-    fn radix() -> usize {
-        Self::RADIX
+    fn designation(&self) -> u8 {
+        self.designation
     }
 
-    const CONFIG: Config = Config {
-        modulus: Self::MODULUS,
-        radix: Self::RADIX,
-        max_digit_value: Self::ALPHABET.max_digit_value(),
-        supplementary_char_value: Self::ALPHABET.supplementary_char_value(),
-        max_sum: (usize::MAX - (Self::ALPHABET.max_digit_value() as usize)) / Self::RADIX,
-    };
+    fn alphabet(&self) -> &Alphabet {
+        &self.alphabet
+    }
+
+    fn check_length(&self) -> u8 {
+        CHECK_LENGTH as u8
+    }
 
     /// Validate that the input digit values, which must already have the check digit(s) appended,
     /// satisfy the check. If a digit value outside those allowed by the the ALPHABET is
     /// encountered, returns false immediately.
-    fn validate_digit_values_iter<I>(it: I) -> bool
+    fn validate_digit_values_iter<I>(&self, it: I) -> bool
     where
         I: IntoIterator<Item = u8>,
     {
-        let mut state: State<CHECK_LENGTH> = State::new();
+        let mut state: State<CHECK_LENGTH> = State::new(self);
 
         for v in it.into_iter() {
-            if !state.process_digit_value(&Self::CONFIG, v) {
+            if !state.process_digit_value(self, v) {
                 return false;
             }
         }
@@ -113,54 +119,27 @@ pub trait PureSystem<const CHECK_LENGTH: usize>: System {
             return false;
         }
 
-        state.sum % Self::MODULUS == 1
-    }
-
-    /// Validate that the input ASCII bytes, which must already have the check digit(s) appended,
-    /// satisfy the check. If an ASCII byte outside the ALPHABET is encountered, returns false
-    /// immediately.
-    fn validate_ascii_bytes_iter<I>(it: I) -> bool
-    where
-        I: IntoIterator<Item = u8>,
-    {
-        let it = it.into_iter().map(|c| {
-            match Self::ALPHABET.char_value(c) {
-                // The character encountered is not valid for our alphabet, so the input string is
-                // not valid. Return an illegal digit value to force compute_digit_values_iter() to
-                // return None
-                a if a < 0 => u8::MAX,
-                a => a as u8,
-            }
-        });
-
-        Self::validate_digit_values_iter(it)
-    }
-
-    /// Check that the input string, which must already have the check digit(s) appended, satisfies
-    /// the check. If characters outside the ALPHABET are encountered, returns false immediately.
-    fn validate_string(string: &str) -> bool {
-        let it = string.as_bytes().iter().copied();
-        Self::validate_ascii_bytes_iter(it)
+        state.sum % self.modulus == 1
     }
 
     /// Compute the checksum for an iterator of payload digit values (for example, values in the
     /// range 0 to 9 inclusive for `Alphabet::Numeric`). If a digit value outside those allowed by
     /// the ALPHABET is encountered, returns None immediately.
-    fn checksum_digit_values_iter<I>(it: I) -> Option<u16>
+    fn checksum_digit_values_iter<I>(&self, it: I) -> Option<u16>
     where
         I: IntoIterator<Item = u8>,
     {
-        let mut state: State<CHECK_LENGTH> = State::new();
+        let mut state: State<CHECK_LENGTH> = State::new(self);
 
         for v in it.into_iter() {
-            if !state.process_digit_value(&Self::CONFIG, v) {
+            if !state.process_digit_value(&self, v) {
                 return None;
             }
         }
 
         // Act as if we had zero(s) provided for the check digit position(s).
         for _ in 0..CHECK_LENGTH {
-            if !state.process_digit_value(&Self::CONFIG, 0) {
+            if !state.process_digit_value(&self, 0) {
                 return None;
             }
         }
@@ -172,34 +151,8 @@ pub trait PureSystem<const CHECK_LENGTH: usize>: System {
             return None;
         }
 
-        let value = ((Self::MODULUS + 1) - (state.sum % Self::MODULUS)) % Self::MODULUS;
+        let value = ((self.modulus + 1) - (state.sum % self.modulus)) % self.modulus;
 
         Some(value as u16)
-    }
-
-    /// Compute the checksum for an iterator of payload ASCII bytes. If an ASCII byte outside the
-    /// ALPHABET is encountered, returns None immediately.
-    fn checksum_ascii_bytes_iter<I>(it: I) -> Option<u16>
-    where
-        I: IntoIterator<Item = u8>,
-    {
-        let it = it.into_iter().map(|c| {
-            match Self::ALPHABET.char_value(c) {
-                // The character encountered is not valid for our alphabet, so the input string is
-                // not valid. Return an illegal digit value to force compute_digit_values_iter() to
-                // return None
-                a if a < 0 => u8::MAX,
-                a => a as u8,
-            }
-        });
-
-        Self::checksum_digit_values_iter(it)
-    }
-
-    /// Compute the check digit for a payload string. If characters outside the ALPHABET are
-    /// encountered, returns None immediately.
-    fn checksum_string(string: &str) -> Option<u16> {
-        let it = string.as_bytes().iter().copied();
-        Self::checksum_ascii_bytes_iter(it)
     }
 }

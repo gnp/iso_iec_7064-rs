@@ -1,9 +1,9 @@
 use crate::hybrid::HybridSystem;
-use crate::Alphabet;
+// use crate::Alphabet;
 
-pub const Mod37_36: HybridSystem = HybridSystem {
+pub const MOD_37_36: HybridSystem<35> = HybridSystem {
     name: "ISO/IEC 7064, MOD 37,36",
     designation: 8,
-    alphabet: Alphabet::Alphanumeric,
+    // alphabet: Alphabet::Alphanumeric,
     modulus: 36,
 };

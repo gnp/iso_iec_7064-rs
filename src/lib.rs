@@ -10,11 +10,11 @@
 //! "Financial services — Legal entity identifier (LEI) — Part 1: Assignment", which is implemented
 //! by [the `lei` crate](https://crates.io/crates/lei).
 
-use crate::alphabet::Alphabet;
-
-mod alphabet;
 pub mod hybrid;
+pub use hybrid::HybridSystem;
+
 pub mod pure;
+pub use pure::PureSystem;
 
 pub mod system;
 pub use system::System;
@@ -22,27 +22,27 @@ pub use system::System;
 // The _Pure_ _Check Character Systems_ defined in The Standard.
 
 mod mod_11_2;
-pub use mod_11_2::Mod11_2;
+pub use mod_11_2::MOD_11_2;
 
 mod mod_1271_36;
-pub use mod_1271_36::Mod1271_36;
+pub use mod_1271_36::MOD_1271_36;
 
 mod mod_37_2;
-pub use mod_37_2::Mod37_2;
+pub use mod_37_2::MOD_37_2;
 
 mod mod_661_26;
-pub use mod_661_26::Mod661_26;
+pub use mod_661_26::MOD_661_26;
 
 mod mod_97_10;
-pub use mod_97_10::Mod97_10;
+pub use mod_97_10::MOD_97_10;
 
 // The _Hybrid_ _Check Character Systems_ defined in The Standard.
 
 mod mod_11_10;
-pub use mod_11_10::Mod11_10;
+pub use mod_11_10::MOD_11_10;
 
 mod mod_27_26;
-pub use mod_27_26::Mod27_26;
+pub use mod_27_26::MOD_27_26;
 
 mod mod_37_36;
-pub use mod_37_36::Mod37_36;
+pub use mod_37_36::MOD_37_36;

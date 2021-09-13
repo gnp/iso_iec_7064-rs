@@ -2,28 +2,22 @@
 //!
 //! A trait to help implement the _Hybrid Check Character Systems_ appearing in The Standard.
 
-use crate::alphabet::Alphabet;
 use crate::system::System;
 
 /// Type for implementing all _Hybrid Check Character Systems_
-pub struct HybridSystem {
+pub struct HybridSystem<const MAX_DIGIT_VALUE: u8> {
     pub(crate) name: &'static str,
     pub(crate) designation: u8,
-    pub(crate) alphabet: Alphabet,
     pub(crate) modulus: usize,
 }
 
-impl System for HybridSystem {
+impl<const MAX_DIGIT_VALUE: u8> System<MAX_DIGIT_VALUE> for HybridSystem<MAX_DIGIT_VALUE> {
     fn name(&self) -> &'static str {
         self.name
     }
 
     fn designation(&self) -> u8 {
         self.designation
-    }
-
-    fn alphabet(&self) -> &Alphabet {
-        &self.alphabet
     }
 
     fn check_length(&self) -> u8 {
@@ -37,14 +31,12 @@ impl System for HybridSystem {
     where
         I: IntoIterator<Item = u8>,
     {
-        let max_digit_value: u8 = self.alphabet.max_digit_value();
-
         let mut p: usize = self.modulus;
         let mut s: usize = 0;
         let mut first_char: bool = true;
 
         for v in it.into_iter() {
-            if v > max_digit_value {
+            if v > MAX_DIGIT_VALUE {
                 return false;
             }
 
@@ -69,12 +61,10 @@ impl System for HybridSystem {
     where
         I: IntoIterator<Item = u8>,
     {
-        let max_digit_value: u8 = self.alphabet.max_digit_value();
-
         let mut p: usize = self.modulus;
 
         for v in it.into_iter() {
-            if v > max_digit_value {
+            if v > MAX_DIGIT_VALUE {
                 return None;
             }
 

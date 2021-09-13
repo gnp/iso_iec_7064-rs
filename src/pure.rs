@@ -2,17 +2,18 @@
 //!
 //! A trait to help implement the _Pure Check Character Systems_ appearing in The Standard.
 
-use crate::alphabet::Alphabet;
 use crate::system::System;
 
 /// This is the state that will change with each iteration. Constant generic parameter CHECK_LENGTH
 /// must be non-zero. The type of CHECK_LENGTH is usize instead of u8 because even though it in
 /// practice only ever contains value 1 or 2, it is used in the size of an array, requiring it to be
 /// of type usize.
-struct State<const CHECK_LENGTH: usize> {
-    /// The maximum value the sum can attain before we have to reduce it by the modulus to prevent
-    /// overflow.
-    max_sum: usize,
+struct State<
+    const CHECK_LENGTH: usize,
+    const MAX_DIGIT_VALUE: u8,
+    const MODULUS: usize,
+    const RADIX: usize,
+> {
     /// We maintain the count so we can fail if there isn't at least one payload character.
     count: usize,
     /// The work-in-progress checksum.
@@ -22,11 +23,27 @@ struct State<const CHECK_LENGTH: usize> {
     check_char_values: [u8; CHECK_LENGTH],
 }
 
-impl<const CHECK_LENGTH: usize> State<CHECK_LENGTH> {
-    fn new(system: &PureSystem<CHECK_LENGTH>) -> State<CHECK_LENGTH> {
-        let max_sum = (usize::MAX - (system.alphabet.max_digit_value() as usize)) / system.radix;
+impl<
+        const CHECK_LENGTH: usize,
+        const MAX_DIGIT_VALUE: u8,
+        const MODULUS: usize,
+        const RADIX: usize,
+    > State<CHECK_LENGTH, MAX_DIGIT_VALUE, MODULUS, RADIX>
+{
+    const MAX_SUM: usize = (usize::MAX - (MAX_DIGIT_VALUE as usize)) / RADIX;
+
+    /// The supplementary check character for the alphabet, or `-1` if there
+    /// isn't one. These are used during validation to detect illegal characters in the payload
+    /// portion
+    /// of the input string.
+    const SUPPLEMENTARY_CHAR_VALUE: i8 = match MAX_DIGIT_VALUE {
+        10 => 10,
+        36 => 36,
+        _ => -1,
+    };
+
+    fn new() -> State<CHECK_LENGTH, MAX_DIGIT_VALUE, MODULUS, RADIX> {
         State {
-            max_sum,
             count: 0,
             sum: 0,
             check_char_values: [0; CHECK_LENGTH],
@@ -35,8 +52,8 @@ impl<const CHECK_LENGTH: usize> State<CHECK_LENGTH> {
 
     /// Returns true if it successfully processed the digit value, false otherwise (for example, if
     /// the value was out of range).
-    fn process_digit_value(&mut self, system: &PureSystem<CHECK_LENGTH>, v: u8) -> bool {
-        if v > system.alphabet.max_digit_value() {
+    fn process_digit_value(&mut self, v: u8) -> bool {
+        if v > MAX_DIGIT_VALUE {
             return false;
         }
 
@@ -45,10 +62,10 @@ impl<const CHECK_LENGTH: usize> State<CHECK_LENGTH> {
         // If our alphabet has a supplementary character, then we need to be sure we are not
         // about to roll off a value corresponding to the supplementary character, because if we
         // are, that means it was in the Payload portion of the input, making the input invalid.
-        match system.alphabet.supplementary_char_value() {
-            None => (),
-            Some(n) => {
-                if self.check_char_values[0] == n {
+        match Self::SUPPLEMENTARY_CHAR_VALUE {
+            -1 => (),
+            n => {
+                if self.check_char_values[0] == (n as u8) {
                     return false;
                 }
                 for i in 1..CHECK_LENGTH {
@@ -60,28 +77,43 @@ impl<const CHECK_LENGTH: usize> State<CHECK_LENGTH> {
 
         // If the sum is great enough we cannot guarantee to not overflow, reduce it before
         // performing the next multiply-add step.
-        if self.sum > self.max_sum {
-            self.sum %= system.modulus
+        if self.sum > Self::MAX_SUM {
+            self.sum %= MODULUS
         }
 
-        self.sum = (self.sum * system.radix) + (v as usize);
+        self.sum = (self.sum * RADIX) + (v as usize);
 
         true
     }
 }
 
 /// Type for implementing all _Pure Check Character Systems_
-pub struct PureSystem<const CHECK_LENGTH: usize> {
+pub struct PureSystem<
+    const CHECK_LENGTH: usize,
+    const MAX_DIGIT_VALUE: u8,
+    const MODULUS: usize,
+    const RADIX: usize,
+> {
     pub(crate) name: &'static str,
     pub(crate) designation: u8,
-    pub(crate) alphabet: Alphabet,
-    pub(crate) modulus: usize,
-    pub(crate) radix: usize,
 }
 
-impl<const CHECK_LENGTH: usize> PureSystem<CHECK_LENGTH> {}
+impl<
+        const CHECK_LENGTH: usize,
+        const MAX_DIGIT_VALUE: u8,
+        const MODULUS: usize,
+        const RADIX: usize,
+    > PureSystem<CHECK_LENGTH, MAX_DIGIT_VALUE, MODULUS, RADIX>
+{
+}
 
-impl<const CHECK_LENGTH: usize> System for PureSystem<CHECK_LENGTH> {
+impl<
+        const CHECK_LENGTH: usize,
+        const MAX_DIGIT_VALUE: u8,
+        const MODULUS: usize,
+        const RADIX: usize,
+    > System<MAX_DIGIT_VALUE> for PureSystem<CHECK_LENGTH, MAX_DIGIT_VALUE, MODULUS, RADIX>
+{
     fn name(&self) -> &'static str {
         self.name
     }
@@ -90,9 +122,9 @@ impl<const CHECK_LENGTH: usize> System for PureSystem<CHECK_LENGTH> {
         self.designation
     }
 
-    fn alphabet(&self) -> &Alphabet {
-        &self.alphabet
-    }
+    // fn alphabet(&self) -> Alphabet<MAX_DIGIT_VALUE> {
+    //     Self::ALPHABET
+    // }
 
     fn check_length(&self) -> u8 {
         CHECK_LENGTH as u8
@@ -105,10 +137,10 @@ impl<const CHECK_LENGTH: usize> System for PureSystem<CHECK_LENGTH> {
     where
         I: IntoIterator<Item = u8>,
     {
-        let mut state: State<CHECK_LENGTH> = State::new(self);
+        let mut state: State<CHECK_LENGTH, MAX_DIGIT_VALUE, MODULUS, RADIX> = State::new();
 
         for v in it.into_iter() {
-            if !state.process_digit_value(self, v) {
+            if !state.process_digit_value(v) {
                 return false;
             }
         }
@@ -119,7 +151,7 @@ impl<const CHECK_LENGTH: usize> System for PureSystem<CHECK_LENGTH> {
             return false;
         }
 
-        state.sum % self.modulus == 1
+        state.sum % MODULUS == 1
     }
 
     /// Compute the checksum for an iterator of payload digit values (for example, values in the
@@ -129,17 +161,17 @@ impl<const CHECK_LENGTH: usize> System for PureSystem<CHECK_LENGTH> {
     where
         I: IntoIterator<Item = u8>,
     {
-        let mut state: State<CHECK_LENGTH> = State::new(self);
+        let mut state: State<CHECK_LENGTH, MAX_DIGIT_VALUE, MODULUS, RADIX> = State::new();
 
         for v in it.into_iter() {
-            if !state.process_digit_value(&self, v) {
+            if !state.process_digit_value(v) {
                 return None;
             }
         }
 
         // Act as if we had zero(s) provided for the check digit position(s).
         for _ in 0..CHECK_LENGTH {
-            if !state.process_digit_value(&self, 0) {
+            if !state.process_digit_value(0) {
                 return None;
             }
         }
@@ -151,7 +183,7 @@ impl<const CHECK_LENGTH: usize> System for PureSystem<CHECK_LENGTH> {
             return None;
         }
 
-        let value = ((self.modulus + 1) - (state.sum % self.modulus)) % self.modulus;
+        let value = ((MODULUS + 1) - (state.sum % MODULUS)) % MODULUS;
 
         Some(value as u16)
     }

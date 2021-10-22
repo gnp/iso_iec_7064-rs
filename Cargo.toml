@@ -6,7 +6,7 @@ authors = ["Gregor Purdy <gregor@abcelo.com>"]
 license = "MIT OR Apache-2.0"
 keywords = ["checksum", "check-digit"]
 readme = "README.md"
-edition = "2018"
+edition = "2021"
 repository = "https://github.com/gnp/iso_iec_7064-rs.git"
 include = []
 

@@ -1,6 +1,6 @@
 [package]
 name = "iso_iec_7064"
-version = "0.1.0"
+version = "0.1.1"
 description = "Support for check digit operations conforming to ISO/IEC 7064"
 authors = ["Gregor Purdy <gregor@abcelo.com>"]
 license = "MIT OR Apache-2.0"

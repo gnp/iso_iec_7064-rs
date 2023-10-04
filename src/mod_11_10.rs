@@ -16,22 +16,22 @@ mod tests {
     // Test case from The Standard, Section 10.1.2 "Example"
     #[test]
     fn validate_example_from_standard() {
-        assert_eq!(true, MOD_11_10.validate_string("07945"));
+        assert!(MOD_11_10.validate_string("07945"));
     }
 
     // Test cases manually derived from The Standard, Section 10.1.2 "Example"
     #[test]
     fn validate_examples_derived_from_standard() {
-        assert_eq!(true, MOD_11_10.validate_string("07904"));
-        assert_eq!(true, MOD_11_10.validate_string("07912"));
-        assert_eq!(true, MOD_11_10.validate_string("07929"));
-        assert_eq!(true, MOD_11_10.validate_string("07937"));
+        assert!(MOD_11_10.validate_string("07904"));
+        assert!(MOD_11_10.validate_string("07912"));
+        assert!(MOD_11_10.validate_string("07929"));
+        assert!(MOD_11_10.validate_string("07937"));
 
-        assert_eq!(true, MOD_11_10.validate_string("07953"));
-        assert_eq!(true, MOD_11_10.validate_string("07961"));
-        assert_eq!(true, MOD_11_10.validate_string("07970"));
-        assert_eq!(true, MOD_11_10.validate_string("07988"));
-        assert_eq!(true, MOD_11_10.validate_string("07996"));
+        assert!(MOD_11_10.validate_string("07953"));
+        assert!(MOD_11_10.validate_string("07961"));
+        assert!(MOD_11_10.validate_string("07970"));
+        assert!(MOD_11_10.validate_string("07988"));
+        assert!(MOD_11_10.validate_string("07996"));
     }
 
     // Test case from The Standard, Section 10.1.2 "Example"

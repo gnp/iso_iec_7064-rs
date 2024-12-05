@@ -60,8 +60,8 @@ pub trait System<const MAX_DIGIT_VALUE: u8> {
     /// zero is reserved for "No check character or non-standard system".
     fn designation(&self) -> u8;
 
-    /// The alphabet used in the Check character system, including the symbols allowed in the
-    /// payload and any additional symbols that may be allowed in the check character(s).
+    // /// The alphabet used in the Check character system, including the symbols allowed in the
+    // /// payload and any additional symbols that may be allowed in the check character(s).
     // fn alphabet(&self) -> &Alphabet;
 
     /// The number of check characters the Check character system produces.
